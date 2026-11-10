@@ -110,7 +110,7 @@ export default function BuildingModal({
               No buildings found matching "{modalSearch}"
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               {filteredBuildings.map(([bldg, count]) => {
                 const isSelected = selectedBuilding === bldg;
                 return (
@@ -120,21 +120,25 @@ export default function BuildingModal({
                       onSelectBuilding(bldg);
                       onClose();
                     }}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-left text-xs transition-all ${
+                    className={`group flex items-center justify-between p-3 rounded-xl border text-left text-xs transition-all ${
                       isSelected
-                        ? 'bg-sky-600 text-white border-sky-600 shadow-md ring-2 ring-sky-300 dark:ring-sky-800'
-                        : 'bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-200'
+                        ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-600/20 ring-2 ring-cyan-400/50 dark:ring-cyan-500/40'
+                        : 'bg-slate-50 dark:bg-slate-800/90 hover:bg-cyan-50/60 dark:hover:bg-slate-700/90 border-slate-200 dark:border-slate-700/80 hover:border-cyan-300 dark:hover:border-cyan-500/60 text-slate-800 dark:text-slate-100 shadow-sm'
                     }`}
                   >
-                    <div className="truncate font-semibold flex items-center gap-1.5">
-                      {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
-                      <span className="truncate">{bldg}</span>
+                    <div className="truncate font-bold flex items-center gap-1.5">
+                      {isSelected ? (
+                        <Check className="w-3.5 h-3.5 shrink-0 text-white" />
+                      ) : (
+                        <Building2 className="w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-cyan-400/80 group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors" />
+                      )}
+                      <span className="truncate font-mono tracking-tight">{bldg}</span>
                     </div>
                     <span
-                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ml-1 transition-colors ${
                         isSelected
-                          ? 'bg-sky-700 text-white'
-                          : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600'
+                          ? 'bg-cyan-800/80 text-white'
+                          : 'bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-300 border border-slate-200 dark:border-slate-600 group-hover:border-cyan-300 dark:group-hover:border-cyan-500/50'
                       }`}
                     >
                       {count}
