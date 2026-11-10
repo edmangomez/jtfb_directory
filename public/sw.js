@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jtfb-phone-cache-v3';
+const CACHE_NAME = 'jtfb-phone-cache-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -23,6 +23,9 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // Never intercept backend API requests
+  if (url.pathname.startsWith('/api/')) return;
 
   // For HTML pages / root, ALWAYS try Network first so user gets latest version immediately
   if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
