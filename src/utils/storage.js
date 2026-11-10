@@ -1,4 +1,4 @@
-import initialData from '../data/directorio_inicial.json';
+import initialData from '../data/directorio_inicial.json' with { type: 'json' };
 
 const STORAGE_KEY = 'jtfb_phone_database_v1';
 const USERS_KEY = 'jtfb_users_v2';
@@ -32,9 +32,9 @@ const INITIAL_VERSION = {
   fileName: 'JTFB Phone Database Cisco.xlsx',
   uploadedBy: 'System (Factory)',
   timestamp: '2026-11-10 08:15',
-  totalPhones: 1609,
-  primaryCrash: 4,
-  secondaryCrash: 9,
+  totalPhones: initialData.phones?.length || 1609,
+  primaryCrash: initialData.primary_crash?.length || 4,
+  secondaryCrash: initialData.secondary_crash?.length || 9,
   data: initialData
 };
 
@@ -63,6 +63,10 @@ export function loadData() {
 
 export function saveData(data) {
   try {
+    if (!data || !data.phones || !Array.isArray(data.phones) || data.phones.length === 0) {
+      console.warn('Refusing to overwrite database with empty data');
+      return false;
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     return true;
   } catch (err) {
@@ -74,6 +78,7 @@ export function saveData(data) {
 export function resetToDefault() {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    saveData(initialData);
     return initialData;
   } catch (err) {
     console.error('Error resetting directory:', err);
@@ -87,20 +92,61 @@ export function getVersions() {
   try {
     const saved = localStorage.getItem(VERSIONS_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved);
+      let parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Guarantee ver_init_1 is ALWAYS healthy with the 1,609 phones and valid counts
+        let needsSave = false;
+        parsed = parsed.map((v) => {
+          if (v.id === 'ver_init_1') {
+            v.data = initialData;
+            v.totalPhones = initialData.phones?.length || 1609;
+            v.primaryCrash = initialData.primary_crash?.length || 4;
+            v.secondaryCrash = initialData.secondary_crash?.length || 9;
+            needsSave = true;
+          }
+          return v;
+        });
+
+        if (needsSave) {
+          // When persisting versions, strip initialData from ver_init_1 to avoid wasting ~680KB of localStorage quota
+          const leanToStore = parsed.map((v) =>
+            v.id === 'ver_init_1' ? { ...v, data: undefined } : v
+          );
+          try {
+            localStorage.setItem(VERSIONS_KEY, JSON.stringify(leanToStore));
+          } catch (e) {}
+        }
+
         return parsed;
       }
     }
   } catch (err) {
     console.error('Error reading version logs:', err);
   }
-  const defaultList = [INITIAL_VERSION];
-  localStorage.setItem(VERSIONS_KEY, JSON.stringify(defaultList));
+
+  // Default initial list
+  const defaultList = [
+    {
+      ...INITIAL_VERSION,
+      totalPhones: initialData.phones?.length || 1609,
+      primaryCrash: initialData.primary_crash?.length || 4,
+      secondaryCrash: initialData.secondary_crash?.length || 9,
+      data: initialData
+    }
+  ];
+  try {
+    const leanToStore = defaultList.map((v) => ({ ...v, data: undefined }));
+    localStorage.setItem(VERSIONS_KEY, JSON.stringify(leanToStore));
+  } catch (e) {}
   return defaultList;
 }
 
 export function addVersion(fileName, data, uploadedBy = 'admin') {
+  if (!data || !data.phones || !Array.isArray(data.phones) || data.phones.length === 0) {
+    console.warn('Cannot log version with empty phone data');
+    return null;
+  }
+
   try {
     const versions = getVersions();
     const nextVerNum = versions.length + 1;
@@ -119,9 +165,28 @@ export function addVersion(fileName, data, uploadedBy = 'admin') {
       data: data
     };
 
-    versions.unshift(newVersion);
-    const trimmed = versions.slice(0, 25);
-    localStorage.setItem(VERSIONS_KEY, JSON.stringify(trimmed));
+    // Keep up to 5 uploaded versions plus the initial factory version
+    const existingOther = versions.filter((v) => v.id !== 'ver_init_1');
+    const factoryVer = {
+      id: 'ver_init_1',
+      versionNumber: 1,
+      fileName: 'JTFB Phone Database Cisco.xlsx',
+      uploadedBy: 'System (Factory)',
+      timestamp: '2026-11-10 08:15',
+      totalPhones: initialData.phones?.length || 1609,
+      primaryCrash: initialData.primary_crash?.length || 4,
+      secondaryCrash: initialData.secondary_crash?.length || 9,
+      data: initialData
+    };
+
+    const combined = [newVersion, ...existingOther.slice(0, 4), factoryVer];
+
+    // Strip data from ver_init_1 before writing to localStorage
+    const leanToStore = combined.map((v) =>
+      v.id === 'ver_init_1' ? { ...v, data: undefined } : v
+    );
+
+    localStorage.setItem(VERSIONS_KEY, JSON.stringify(leanToStore));
     return newVersion;
   } catch (err) {
     console.error('Error saving version log:', err);
@@ -130,12 +195,31 @@ export function addVersion(fileName, data, uploadedBy = 'admin') {
 }
 
 export function restoreVersion(versionId) {
+  // 1. Initial factory version guarantee
+  if (versionId === 'ver_init_1') {
+    saveData(initialData);
+    getVersions(); // Ensure clean versions state in storage
+    return initialData;
+  }
+
   const versions = getVersions();
   const target = versions.find((v) => v.id === versionId);
-  if (!target || !target.data) return null;
+  if (!target) return null;
 
-  saveData(target.data);
-  return target.data;
+  let dataToRestore = target.data;
+  // If target is factory or data has no phones, fallback to initialData
+  if (target.id === 'ver_init_1' || !dataToRestore || !dataToRestore.phones || dataToRestore.phones.length === 0) {
+    if (target.id === 'ver_init_1') {
+      dataToRestore = initialData;
+    } else {
+      console.error('Cannot restore version: invalid or empty phone dataset', target);
+      return null;
+    }
+  }
+
+  const ok = saveData(dataToRestore);
+  if (!ok) return null;
+  return dataToRestore;
 }
 
 // --- Administrator Accounts Methods ---

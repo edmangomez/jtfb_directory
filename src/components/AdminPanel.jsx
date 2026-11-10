@@ -141,12 +141,13 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
       `Are you sure you want to load version "${ver.fileName}" (${ver.totalPhones} phones, uploaded by ${ver.uploadedBy} on ${ver.timestamp})? The current directory will be updated with this snapshot.`,
       () => {
         const restored = restoreVersion(ver.id);
-        if (restored) {
+        if (restored && Array.isArray(restored.phones) && restored.phones.length > 0) {
           onDataUpdated(restored);
+          setVersionsList(getVersions());
           setDbSuccess(`Directory successfully restored to Version ${ver.versionNumber} (${ver.fileName})!`);
           setTimeout(() => setDbSuccess(''), 4500);
         } else {
-          setDbError('Could not restore the selected version data.');
+          setDbError('Could not restore the selected version data: the snapshot is empty or invalid.');
         }
       },
       'info',
