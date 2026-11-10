@@ -11,7 +11,10 @@ export default function LoginScreen({ onLoginSuccess }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!username.trim() || !password) {
+    const cleanUser = username.trim();
+    const cleanPass = password.trim();
+
+    if (!cleanUser || !cleanPass) {
       setError('Please enter both username and password.');
       return;
     }
@@ -19,15 +22,19 @@ export default function LoginScreen({ onLoginSuccess }) {
     setLoading(true);
     setError('');
 
-    setTimeout(() => {
-      const res = loginUser(username, password);
+    // Synchronous authentication with instant feedback
+    try {
+      const res = loginUser(cleanUser, cleanPass);
       if (res.success) {
         onLoginSuccess(res.user);
       } else {
-        setError(res.error || 'Invalid credentials');
+        setError(res.error || 'Invalid credentials. Check username and password.');
         setLoading(false);
       }
-    }, 250);
+    } catch (err) {
+      setError('Login error: ' + (err.message || 'Unknown error'));
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,13 +65,13 @@ export default function LoginScreen({ onLoginSuccess }) {
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800/80 text-rose-300 text-xs flex items-center gap-2 animate-fadeIn">
+            <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-800 text-rose-300 text-xs flex items-center gap-2 animate-fadeIn">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Username Input */}
+          {/* Username Input (Mobile-Friendly, No Auto-Capitalize) */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
               Administrator Username
@@ -76,14 +83,16 @@ export default function LoginScreen({ onLoginSuccess }) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter admin username"
-                autoFocus
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
                 autoComplete="username"
                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
               />
             </div>
           </div>
 
-          {/* Password Input */}
+          {/* Password Input (Mobile-Friendly, No Auto-Capitalize) */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
               Password
@@ -95,6 +104,9 @@ export default function LoginScreen({ onLoginSuccess }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
                 autoComplete="current-password"
                 className="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
               />
@@ -115,7 +127,7 @@ export default function LoginScreen({ onLoginSuccess }) {
             className="w-full py-3.5 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white font-bold text-sm shadow-lg shadow-cyan-600/25 active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
           >
             <ShieldCheck className="w-4 h-4" />
-            <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
+            <span>{loading ? 'Signing In...' : 'Sign In'}</span>
           </button>
         </form>
       </div>

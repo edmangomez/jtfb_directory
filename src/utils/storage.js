@@ -1,12 +1,12 @@
 import initialData from '../data/directorio_inicial.json';
 
 const STORAGE_KEY = 'jtfb_phone_database_v1';
-const USERS_KEY = 'jtfb_users_v1';
-const SESSION_KEY = 'jtfb_session_v1';
+const USERS_KEY = 'jtfb_users_v2';
+const SESSION_KEY = 'jtfb_session_v2';
 const VERSIONS_KEY = 'jtfb_excel_versions_v1';
 
-// Default initial administrators (all users are now admins as requested)
-const DEFAULT_USERS = [
+// Default initial administrators (All users are administrators)
+export const DEFAULT_USERS = [
   {
     id: 'u_admin',
     username: 'admin',
@@ -113,9 +113,7 @@ export function addVersion(fileName, data, uploadedBy = 'admin') {
       data: data
     };
 
-    // Prepend so latest is first
     versions.unshift(newVersion);
-    // Keep up to 25 latest version snapshots
     const trimmed = versions.slice(0, 25);
     localStorage.setItem(VERSIONS_KEY, JSON.stringify(trimmed));
     return newVersion;
@@ -142,7 +140,6 @@ export function getUsers() {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Ensure all users have admin role
         return parsed.map((u) => ({ ...u, role: 'admin' }));
       }
     }
@@ -173,8 +170,8 @@ export function createUser(userData) {
     id: `u_${Date.now()}`,
     username: userData.username.trim(),
     name: userData.name.trim() || userData.username.trim(),
-    role: 'admin', // All users are administrators as requested
-    password: userData.password,
+    role: 'admin',
+    password: userData.password.trim(),
     createdAt: new Date().toISOString().split('T')[0]
   };
 
@@ -188,7 +185,6 @@ export function updateUser(userId, updatedFields) {
   const idx = users.findIndex((u) => u.id === userId);
   if (idx === -1) return { success: false, error: 'User not found' };
 
-  // Check if username changed and is already taken
   if (
     updatedFields.username &&
     users.some(
@@ -202,13 +198,12 @@ export function updateUser(userId, updatedFields) {
     ...users[idx],
     username: updatedFields.username ? updatedFields.username.trim() : users[idx].username,
     name: updatedFields.name !== undefined ? updatedFields.name.trim() : users[idx].name,
-    password: updatedFields.password ? updatedFields.password : users[idx].password,
+    password: updatedFields.password ? updatedFields.password.trim() : users[idx].password,
     role: 'admin'
   };
 
   saveUsers(users);
 
-  // If currently active session user was updated, update session too
   const currentSession = getSession();
   if (currentSession && currentSession.id === userId) {
     localStorage.setItem(
@@ -255,10 +250,38 @@ export function getSession() {
 }
 
 export function loginUser(username, password) {
+  const cleanUser = username ? username.trim().toLowerCase() : '';
+  const cleanPass = password ? password.trim() : '';
+
+  if (!cleanUser || !cleanPass) {
+    return { success: false, error: 'Please enter both username and password' };
+  }
+
   const users = getUsers();
-  const found = users.find(
-    (u) => u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password
-  );
+
+  // Helper matcher: handles exact match or case-insensitive password (essential for mobile autocapitalize)
+  const isMatch = (storedUser) => {
+    if (storedUser.username.toLowerCase() !== cleanUser) return false;
+    const p = String(storedUser.password).trim();
+    return (
+      p === password ||
+      p === cleanPass ||
+      p.toLowerCase() === cleanPass.toLowerCase()
+    );
+  };
+
+  // 1. Check in stored users
+  let found = users.find(isMatch);
+
+  // 2. Fallback guarantee: check hardcoded defaults
+  if (!found) {
+    found = DEFAULT_USERS.find(isMatch);
+    if (found) {
+      // Auto-repair storage if phone had stale/corrupt list
+      const filtered = users.filter((u) => u.username.toLowerCase() !== cleanUser);
+      saveUsers([...filtered, found]);
+    }
+  }
 
   if (found) {
     const sessionData = {
@@ -267,7 +290,11 @@ export function loginUser(username, password) {
       name: found.name,
       role: 'admin'
     };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    } catch (e) {
+      console.warn('Could not persist session to localStorage:', e);
+    }
     return { success: true, user: sessionData };
   }
 
@@ -304,15 +331,12 @@ export function importCompleteSystemBackup(jsonString) {
       return { success: false, error: 'Invalid backup file structure: missing database phones array.' };
     }
 
-    // Restore Database
     saveData(parsed.database);
 
-    // Restore Administrators if provided
     if (Array.isArray(parsed.administrators) && parsed.administrators.length > 0) {
       saveUsers(parsed.administrators);
     }
 
-    // Restore Version Logs if provided
     if (Array.isArray(parsed.versionLogs) && parsed.versionLogs.length > 0) {
       localStorage.setItem(VERSIONS_KEY, JSON.stringify(parsed.versionLogs));
     }
