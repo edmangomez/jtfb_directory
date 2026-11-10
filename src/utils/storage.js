@@ -42,9 +42,17 @@ const INITIAL_VERSION = {
 
 async function apiCall(endpoint, method = 'GET', body = null) {
   try {
-    const res = await fetch(`/api${endpoint}`, {
+    const url =
+      method === 'GET'
+        ? `/api${endpoint}${endpoint.includes('?') ? '&' : '?'}_t=${Date.now()}`
+        : `/api${endpoint}`;
+    const res = await fetch(url, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      headers: {
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache'
+      },
       body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store'
     });
@@ -514,21 +522,10 @@ export async function loginUser(username, password) {
   const isMatch = (storedUser) => {
     if (storedUser.username.toLowerCase() !== cleanUser) return false;
     const p = String(storedUser.password).trim();
-    return (
-      p === password ||
-      p === cleanPass ||
-      p.toLowerCase() === cleanPass.toLowerCase()
-    );
+    return p === password || p === cleanPass;
   };
 
-  let found = users.find(isMatch);
-  if (!found) {
-    found = DEFAULT_USERS.find(isMatch);
-    if (found) {
-      const filtered = users.filter((u) => u.username.toLowerCase() !== cleanUser);
-      saveUsers([...filtered, found]);
-    }
-  }
+  const found = users.find(isMatch);
 
   if (found) {
     const sessionData = {

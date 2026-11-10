@@ -155,10 +155,10 @@ const server = http.createServer(async (req, res) => {
       const isMatch = (u) => {
         if (u.username.toLowerCase() !== username) return false;
         const p = String(u.password).trim();
-        return p === password || p.toLowerCase() === password.toLowerCase();
+        return p === password;
       };
 
-      const found = users.find(isMatch) || DEFAULT_USERS.find(isMatch);
+      const found = users.find(isMatch);
       if (found) {
         return sendJson(res, 200, {
           success: true,

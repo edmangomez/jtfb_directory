@@ -261,7 +261,10 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
   };
 
   const handleDeleteUserClick = (userId, username) => {
-    if (userId === currentSession?.id) {
+    if (
+      userId === currentSession?.id ||
+      (currentSession && username.toLowerCase() === currentSession.username.toLowerCase())
+    ) {
       setUserError('You cannot delete your own currently logged-in account.');
       return;
     }
@@ -317,12 +320,14 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
       openConfirm(
         'Restore Complete System Backup?',
         `Loading backup file "${file.name}". This will restore the phone directory, all version snapshots, and administrator accounts. Continue?`,
-        () => {
-          const res = importCompleteSystemBackup(content);
+        async () => {
+          const res = await importCompleteSystemBackup(content);
           if (res.success) {
             onDataUpdated(res.data);
-            setUsersList(getUsers());
-            setVersionsList(getVersions());
+            const uList = await fetchUsers();
+            setUsersList(uList || getUsers());
+            const vList = await fetchVersions();
+            setVersionsList(vList || getVersions());
             setBackupSuccess(
               `System successfully restored! (${res.totalPhones} phones, ${res.usersRestored} admin accounts, ${res.versionsRestored} versions).`
             );
@@ -770,7 +775,9 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {usersList.map((u) => {
-                    const isSelf = u.id === currentSession?.id;
+                    const isSelf =
+                      u.id === currentSession?.id ||
+                      (currentSession && u.username.toLowerCase() === currentSession.username.toLowerCase());
                     return (
                       <tr key={u.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
                         <td className="px-3.5 py-3 font-mono font-bold text-slate-900 dark:text-white">

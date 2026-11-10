@@ -6,6 +6,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSave }) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -13,12 +14,13 @@ export default function EditUserModal({ isOpen, onClose, user, onSave }) {
       setName(user.name || '');
       setPassword(''); // Blank by default so admin can choose to change it
       setError('');
+      setSaving(false);
     }
   }, [user, isOpen]);
 
   if (!isOpen || !user) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username.trim()) {
       setError('Username cannot be empty.');
@@ -38,11 +40,19 @@ export default function EditUserModal({ isOpen, onClose, user, onSave }) {
       payload.password = password;
     }
 
-    const res = onSave(user.id, payload);
-    if (res && !res.success) {
-      setError(res.error || 'Failed to update user.');
-    } else {
-      onClose();
+    setSaving(true);
+    setError('');
+    try {
+      const res = await onSave(user.id, payload);
+      if (res && !res.success) {
+        setError(res.error || 'Failed to update user.');
+      } else {
+        onClose();
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to update user.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -123,16 +133,18 @@ export default function EditUserModal({ isOpen, onClose, user, onSave }) {
             <button
               type="button"
               onClick={onClose}
+              disabled={saving}
               className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-1.5"
+              disabled={saving}
+              className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" />
-              <span>Save Changes</span>
+              <span>{saving ? 'Saving...' : 'Save Changes'}</span>
             </button>
           </div>
         </form>
