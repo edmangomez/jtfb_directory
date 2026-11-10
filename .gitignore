@@ -1,0 +1,26 @@
+# Excel Files and Spreadsheets (Protected / Do not upload)
+*.xlsx
+*.xls
+*.csv
+JTFB Phone Database Cisco.xlsx
+
+# Node dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+
+# Environment and local configs
+.env
+.env.local
+.env.*.local
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# Temporary and user uploaded files
+.user_uploaded/
+scratch/

@@ -1,0 +1,17 @@
+{
+  "short_name": "JTFB Phones",
+  "name": "JTFB Cisco Phone Directory",
+  "description": "JTFB Cisco Phone Directory and Emergency Crash Lines",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#0284c7",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}
