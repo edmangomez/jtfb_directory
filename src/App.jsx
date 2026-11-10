@@ -9,7 +9,7 @@ import CrashLinesView from './components/CrashLinesView';
 import CopyModal from './components/CopyModal';
 import LoginScreen from './components/LoginScreen';
 import AdminPanel from './components/AdminPanel';
-import { loadData, getSession, logoutUser } from './utils/storage';
+import { loadData, fetchServerDatabase, getSession, logoutUser } from './utils/storage';
 import { LayoutGrid, Table, Phone, ArrowUp, ChevronDown, FileSpreadsheet, Settings } from 'lucide-react';
 
 const PAGE_SIZE = 50;
@@ -47,6 +47,15 @@ export default function App() {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
+
+  // Central Server Synchronization
+  useEffect(() => {
+    fetchServerDatabase().then((serverDb) => {
+      if (serverDb && serverDb.phones && serverDb.phones.length > 0) {
+        setData(serverDb);
+      }
+    });
+  }, []);
 
   // Extract building counts and device statistics
   const { topBuildings, buildingsWithCounts, deviceStats, deviceTypes } = useMemo(() => {

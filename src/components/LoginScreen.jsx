@@ -9,7 +9,7 @@ export default function LoginScreen({ onLoginSuccess }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const cleanUser = username.trim();
     const cleanPass = password.trim();
@@ -22,9 +22,9 @@ export default function LoginScreen({ onLoginSuccess }) {
     setLoading(true);
     setError('');
 
-    // Synchronous authentication with instant feedback
+    // Authenticate with central server API & local fallback
     try {
-      const res = loginUser(cleanUser, cleanPass);
+      const res = await loginUser(cleanUser, cleanPass);
       if (res.success) {
         onLoginSuccess(res.user);
       } else {

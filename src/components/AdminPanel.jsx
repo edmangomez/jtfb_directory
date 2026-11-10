@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileSpreadsheet,
   Users,
@@ -21,10 +21,12 @@ import {
   saveData,
   resetToDefault,
   getUsers,
+  fetchUsers,
   createUser,
   updateUser,
   deleteUser,
   getVersions,
+  fetchVersions,
   addVersion,
   restoreVersion,
   deleteVersion,
@@ -80,6 +82,16 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
       action
     });
   };
+
+  // Central Server Synchronization for Admin Panel
+  useEffect(() => {
+    fetchUsers().then((list) => {
+      if (list && Array.isArray(list)) setUsersList(list);
+    });
+    fetchVersions().then((vList) => {
+      if (vList && Array.isArray(vList)) setVersionsList(vList);
+    });
+  }, []);
 
   // --- Excel Upload & Versioning ---
 
@@ -140,11 +152,12 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
     openConfirm(
       `Load Version ${ver.versionNumber}?`,
       `Are you sure you want to load version "${ver.fileName}" (${ver.totalPhones} phones, uploaded by ${ver.uploadedBy} on ${ver.timestamp})? The current directory will be updated with this snapshot.`,
-      () => {
-        const restored = restoreVersion(ver.id);
+      async () => {
+        const restored = await restoreVersion(ver.id);
         if (restored && Array.isArray(restored.phones) && restored.phones.length > 0) {
           onDataUpdated(restored);
-          setVersionsList(getVersions());
+          const vList = await fetchVersions();
+          setVersionsList(vList || getVersions());
           setDbSuccess(`Directory successfully restored to Version ${ver.versionNumber} (${ver.fileName})!`);
           setTimeout(() => setDbSuccess(''), 4500);
         } else {
@@ -166,10 +179,14 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
     openConfirm(
       `Delete Version ${ver.versionNumber}?`,
       `Are you sure you want to permanently delete "${ver.fileName}" (Version ${ver.versionNumber}, uploaded by ${ver.uploadedBy} on ${ver.timestamp}) from the version logs?`,
-      () => {
-        const res = deleteVersion(ver.id);
+      async () => {
+        const res = await deleteVersion(ver.id);
         if (res.success) {
-          setVersionsList(getVersions());
+          if (res.remaining) setVersionsList(res.remaining);
+          else {
+            const vList = await fetchVersions();
+            setVersionsList(vList || getVersions());
+          }
           setDbSuccess(`Version ${ver.versionNumber} ("${ver.fileName}") was successfully deleted.`);
           setTimeout(() => setDbSuccess(''), 4000);
         } else {
@@ -199,7 +216,7 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
 
   // --- User Management (All Administrators) ---
 
-  const handleCreateUser = (e) => {
+  const handleCreateUser = async (e) => {
     e.preventDefault();
     setUserError('');
     setUserSuccess('');
@@ -213,7 +230,7 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
       return;
     }
 
-    const res = createUser({
+    const res = await createUser({
       username: newUsername,
       name: newName,
       password: newPassword
@@ -221,7 +238,8 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
 
     if (res.success) {
       setUserSuccess(`Administrator account "${res.user.username}" created successfully!`);
-      setUsersList(getUsers());
+      if (res.users) setUsersList(res.users);
+      else setUsersList(getUsers());
       setNewUsername('');
       setNewName('');
       setNewPassword('');
@@ -231,10 +249,11 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
     }
   };
 
-  const handleSaveEditUser = (userId, updatedFields) => {
-    const res = updateUser(userId, updatedFields);
+  const handleSaveEditUser = async (userId, updatedFields) => {
+    const res = await updateUser(userId, updatedFields);
     if (res.success) {
-      setUsersList(getUsers());
+      if (res.users) setUsersList(res.users);
+      else setUsersList(getUsers());
       setUserSuccess(`Administrator "${res.user.username}" updated successfully!`);
       setTimeout(() => setUserSuccess(''), 3500);
     }
@@ -250,10 +269,11 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
     openConfirm(
       'Delete Administrator Account?',
       `Are you sure you want to permanently delete administrator "${username}"? They will no longer have access to the system.`,
-      () => {
-        const res = deleteUser(userId);
+      async () => {
+        const res = await deleteUser(userId);
         if (res.success) {
-          setUsersList(getUsers());
+          if (res.users) setUsersList(res.users);
+          else setUsersList(getUsers());
           setUserSuccess(`Administrator "${username}" was removed.`);
           setTimeout(() => setUserSuccess(''), 3000);
         } else {

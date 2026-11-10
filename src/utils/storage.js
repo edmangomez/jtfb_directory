@@ -38,6 +38,26 @@ const INITIAL_VERSION = {
   data: initialData
 };
 
+// --- Server API Helper ---
+
+async function apiCall(endpoint, method = 'GET', body = null) {
+  try {
+    const res = await fetch(`/api${endpoint}`, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+      cache: 'no-store'
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: data?.error || `HTTP ${res.status}` };
+    }
+    return { ok: true, status: res.status, data };
+  } catch (err) {
+    return { ok: false, status: 0, error: err.message };
+  }
+}
+
 // --- Directory Data Methods ---
 
 export function loadData() {
@@ -61,13 +81,25 @@ export function loadData() {
   return initialData;
 }
 
-export function saveData(data) {
+export async function fetchServerDatabase() {
+  const apiRes = await apiCall('/database', 'GET');
+  if (apiRes.ok && apiRes.data?.phones && Array.isArray(apiRes.data.phones) && apiRes.data.phones.length > 0) {
+    saveData(apiRes.data, false);
+    return apiRes.data;
+  }
+  return null;
+}
+
+export function saveData(data, syncToServer = true) {
   try {
     if (!data || !data.phones || !Array.isArray(data.phones) || data.phones.length === 0) {
       console.warn('Refusing to overwrite database with empty data');
       return false;
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    if (syncToServer) {
+      apiCall('/database', 'POST', data).catch(err => console.warn('Could not sync DB to server:', err));
+    }
     return true;
   } catch (err) {
     console.error('Error saving directory to storage:', err);
@@ -78,7 +110,7 @@ export function saveData(data) {
 export function resetToDefault() {
   try {
     localStorage.removeItem(STORAGE_KEY);
-    saveData(initialData);
+    saveData(initialData, true);
     return initialData;
   } catch (err) {
     console.error('Error resetting directory:', err);
@@ -94,7 +126,6 @@ export function getVersions() {
     if (saved) {
       let parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Guarantee ver_init_1 is ALWAYS healthy with the 1,609 phones and valid counts
         let needsSave = false;
         parsed = parsed.map((v) => {
           if (v.id === 'ver_init_1') {
@@ -108,7 +139,6 @@ export function getVersions() {
         });
 
         if (needsSave) {
-          // When persisting versions, strip initialData from ver_init_1 to avoid wasting ~680KB of localStorage quota
           const leanToStore = parsed.map((v) =>
             v.id === 'ver_init_1' ? { ...v, data: undefined } : v
           );
@@ -124,7 +154,6 @@ export function getVersions() {
     console.error('Error reading version logs:', err);
   }
 
-  // Default initial list
   const defaultList = [
     {
       ...INITIAL_VERSION,
@@ -141,11 +170,40 @@ export function getVersions() {
   return defaultList;
 }
 
+export async function fetchVersions() {
+  const apiRes = await apiCall('/versions', 'GET');
+  if (apiRes.ok && Array.isArray(apiRes.data) && apiRes.data.length > 0) {
+    const enriched = apiRes.data.map(v => {
+      if (v.id === 'ver_init_1') {
+        return {
+          ...v,
+          totalPhones: initialData.phones?.length || 1609,
+          primaryCrash: initialData.primary_crash?.length || 4,
+          secondaryCrash: initialData.secondary_crash?.length || 9,
+          data: initialData
+        };
+      }
+      return v;
+    });
+    try {
+      const lean = enriched.map(v => v.id === 'ver_init_1' ? { ...v, data: undefined } : v);
+      localStorage.setItem(VERSIONS_KEY, JSON.stringify(lean));
+    } catch (e) {}
+    return enriched;
+  }
+  return getVersions();
+}
+
 export function addVersion(fileName, data, uploadedBy = 'admin') {
   if (!data || !data.phones || !Array.isArray(data.phones) || data.phones.length === 0) {
     console.warn('Cannot log version with empty phone data');
     return null;
   }
+
+  // Push to server in background
+  apiCall('/versions', 'POST', { fileName, data, uploadedBy }).catch(err => {
+    console.warn('Could not push version to server:', err);
+  });
 
   try {
     const versions = getVersions();
@@ -166,7 +224,6 @@ export function addVersion(fileName, data, uploadedBy = 'admin') {
       data: data
     };
 
-    // Keep up to 5 uploaded versions plus the initial factory version
     const existingOther = versions.filter((v) => v.id !== 'ver_init_1');
     const factoryVer = {
       id: 'ver_init_1',
@@ -181,8 +238,6 @@ export function addVersion(fileName, data, uploadedBy = 'admin') {
     };
 
     const combined = [newVersion, ...existingOther.slice(0, 4), factoryVer];
-
-    // Strip data from ver_init_1 before writing to localStorage
     const leanToStore = combined.map((v) =>
       v.id === 'ver_init_1' ? { ...v, data: undefined } : v
     );
@@ -195,11 +250,18 @@ export function addVersion(fileName, data, uploadedBy = 'admin') {
   }
 }
 
-export function restoreVersion(versionId) {
-  // 1. Initial factory version guarantee
+export async function restoreVersion(versionId) {
+  // Try server restore
+  const apiRes = await apiCall(`/versions/${versionId}/restore`, 'POST');
+  if (apiRes.ok && apiRes.data?.data) {
+    saveData(apiRes.data.data, false);
+    return apiRes.data.data;
+  }
+
+  // Fallback to local
   if (versionId === 'ver_init_1') {
     saveData(initialData);
-    getVersions(); // Ensure clean versions state in storage
+    getVersions();
     return initialData;
   }
 
@@ -208,7 +270,6 @@ export function restoreVersion(versionId) {
   if (!target) return null;
 
   let dataToRestore = target.data;
-  // If target is factory or data has no phones, fallback to initialData
   if (target.id === 'ver_init_1' || !dataToRestore || !dataToRestore.phones || dataToRestore.phones.length === 0) {
     if (target.id === 'ver_init_1') {
       dataToRestore = initialData;
@@ -223,20 +284,26 @@ export function restoreVersion(versionId) {
   return dataToRestore;
 }
 
-export function deleteVersion(versionId) {
+export async function deleteVersion(versionId) {
   if (versionId === 'ver_init_1') {
     return { success: false, error: 'Factory version (v1) is protected and cannot be deleted.' };
+  }
+
+  // Delete on server
+  const apiRes = await apiCall(`/versions/${versionId}`, 'DELETE');
+  if (apiRes.ok && apiRes.data?.remaining) {
+    try {
+      localStorage.setItem(VERSIONS_KEY, JSON.stringify(apiRes.data.remaining));
+    } catch (e) {}
+    return { success: true, remaining: apiRes.data.remaining };
   }
 
   try {
     const versions = getVersions();
     const filtered = versions.filter((v) => v.id !== versionId);
-
-    // Strip data from ver_init_1 before writing to localStorage
     const leanToStore = filtered.map((v) =>
       v.id === 'ver_init_1' ? { ...v, data: undefined } : v
     );
-
     localStorage.setItem(VERSIONS_KEY, JSON.stringify(leanToStore));
     return { success: true, remaining: filtered };
   } catch (err) {
@@ -263,6 +330,16 @@ export function getUsers() {
   return DEFAULT_USERS;
 }
 
+export async function fetchUsers() {
+  const apiRes = await apiCall('/users', 'GET');
+  if (apiRes.ok && Array.isArray(apiRes.data) && apiRes.data.length > 0) {
+    const mapped = apiRes.data.map(u => ({ ...u, role: 'admin' }));
+    saveUsers(mapped);
+    return mapped;
+  }
+  return getUsers();
+}
+
 export function saveUsers(users) {
   try {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
@@ -273,27 +350,71 @@ export function saveUsers(users) {
   }
 }
 
-export function createUser(userData) {
+export async function createUser(userData) {
+  const cleanUsername = userData.username.trim();
+  const cleanName = (userData.name || '').trim() || cleanUsername;
+  const cleanPassword = userData.password.trim();
+
+  // 1. Try server API
+  const apiRes = await apiCall('/users', 'POST', {
+    username: cleanUsername,
+    name: cleanName,
+    password: cleanPassword
+  });
+
+  if (apiRes.ok && apiRes.data?.success) {
+    const users = await fetchUsers();
+    return { success: true, user: apiRes.data.user, users };
+  }
+
+  if (apiRes.status >= 400 && apiRes.error) {
+    return { success: false, error: apiRes.error };
+  }
+
+  // 2. Offline fallback
   const users = getUsers();
-  if (users.some((u) => u.username.toLowerCase() === userData.username.toLowerCase())) {
+  if (users.some((u) => u.username.toLowerCase() === cleanUsername.toLowerCase())) {
     return { success: false, error: 'An administrator with this username already exists.' };
   }
 
   const newUser = {
     id: `u_${Date.now()}`,
-    username: userData.username.trim(),
-    name: userData.name.trim() || userData.username.trim(),
+    username: cleanUsername,
+    name: cleanName,
     role: 'admin',
-    password: userData.password.trim(),
+    password: cleanPassword,
     createdAt: new Date().toISOString().split('T')[0]
   };
 
   users.push(newUser);
   saveUsers(users);
-  return { success: true, user: newUser };
+  return { success: true, user: newUser, users };
 }
 
-export function updateUser(userId, updatedFields) {
+export async function updateUser(userId, updatedFields) {
+  const apiRes = await apiCall(`/users/${userId}`, 'PUT', updatedFields);
+  if (apiRes.ok && apiRes.data?.success) {
+    const users = await fetchUsers();
+    const currentSession = getSession();
+    if (currentSession && currentSession.id === userId) {
+      localStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify({
+          id: apiRes.data.user.id,
+          username: apiRes.data.user.username,
+          name: apiRes.data.user.name,
+          role: 'admin'
+        })
+      );
+    }
+    return { success: true, user: apiRes.data.user, users };
+  }
+
+  if (apiRes.status >= 400 && apiRes.error) {
+    return { success: false, error: apiRes.error };
+  }
+
+  // Offline fallback
   let users = getUsers();
   const idx = users.findIndex((u) => u.id === userId);
   if (idx === -1) return { success: false, error: 'User not found' };
@@ -330,31 +451,33 @@ export function updateUser(userId, updatedFields) {
     );
   }
 
-  return { success: true, user: users[idx] };
+  return { success: true, user: users[idx], users };
 }
 
-export function deleteUser(userId) {
-  let users = getUsers();
-  const target = users.find((u) => u.id === userId);
-  if (!target) return { success: false, error: 'User not found' };
-
-  if (users.length <= 1) {
-    return { success: false, error: 'Cannot delete the last remaining administrator account.' };
+export async function deleteUser(userId) {
+  const apiRes = await apiCall(`/users/${userId}`, 'DELETE');
+  if (apiRes.ok) {
+    const users = await fetchUsers();
+    return { success: true, users };
   }
 
-  users = users.filter((u) => u.id !== userId);
-  saveUsers(users);
-  return { success: true };
+  if (apiRes.status >= 400 && apiRes.error) {
+    return { success: false, error: apiRes.error };
+  }
+
+  const users = getUsers();
+  const filtered = users.filter((u) => u.id !== userId);
+  saveUsers(filtered);
+  return { success: true, users: filtered };
 }
+
+// --- Session & Authentication ---
 
 export function getSession() {
   try {
     const saved = localStorage.getItem(SESSION_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.username) {
-        return { ...parsed, role: 'admin' };
-      }
+      return JSON.parse(saved);
     }
   } catch (err) {
     console.error('Error reading session:', err);
@@ -362,7 +485,7 @@ export function getSession() {
   return null;
 }
 
-export function loginUser(username, password) {
+export async function loginUser(username, password) {
   const cleanUser = username ? username.trim().toLowerCase() : '';
   const cleanPass = password ? password.trim() : '';
 
@@ -370,9 +493,24 @@ export function loginUser(username, password) {
     return { success: false, error: 'Please enter both username and password' };
   }
 
-  const users = getUsers();
+  // 1. Check Central Server API
+  const apiRes = await apiCall('/auth/login', 'POST', { username: cleanUser, password: cleanPass });
+  if (apiRes.ok && apiRes.data?.success) {
+    const sessionData = apiRes.data.user;
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    } catch (e) {}
+    // Background sync users
+    fetchUsers().catch(() => {});
+    return { success: true, user: sessionData };
+  }
 
-  // Helper matcher: handles exact match or case-insensitive password (essential for mobile autocapitalize)
+  if (apiRes.status === 401 || apiRes.status === 400) {
+    return { success: false, error: apiRes.error || 'Invalid username or password' };
+  }
+
+  // 2. Offline fallback
+  const users = getUsers();
   const isMatch = (storedUser) => {
     if (storedUser.username.toLowerCase() !== cleanUser) return false;
     const p = String(storedUser.password).trim();
@@ -383,14 +521,10 @@ export function loginUser(username, password) {
     );
   };
 
-  // 1. Check in stored users
   let found = users.find(isMatch);
-
-  // 2. Fallback guarantee: check hardcoded defaults
   if (!found) {
     found = DEFAULT_USERS.find(isMatch);
     if (found) {
-      // Auto-repair storage if phone had stale/corrupt list
       const filtered = users.filter((u) => u.username.toLowerCase() !== cleanUser);
       saveUsers([...filtered, found]);
     }
@@ -405,9 +539,7 @@ export function loginUser(username, password) {
     };
     try {
       localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
-    } catch (e) {
-      console.warn('Could not persist session to localStorage:', e);
-    }
+    } catch (e) {}
     return { success: true, user: sessionData };
   }
 
@@ -437,14 +569,14 @@ export function exportCompleteSystemBackup() {
   return JSON.stringify(backupPayload, null, 2);
 }
 
-export function importCompleteSystemBackup(jsonString) {
+export async function importCompleteSystemBackup(jsonString) {
   try {
     const parsed = JSON.parse(jsonString);
     if (!parsed || !parsed.database || !Array.isArray(parsed.database.phones)) {
       return { success: false, error: 'Invalid backup file structure: missing database phones array.' };
     }
 
-    saveData(parsed.database);
+    saveData(parsed.database, true);
 
     if (Array.isArray(parsed.administrators) && parsed.administrators.length > 0) {
       saveUsers(parsed.administrators);
@@ -453,6 +585,9 @@ export function importCompleteSystemBackup(jsonString) {
     if (Array.isArray(parsed.versionLogs) && parsed.versionLogs.length > 0) {
       localStorage.setItem(VERSIONS_KEY, JSON.stringify(parsed.versionLogs));
     }
+
+    // Sync full backup to server API in background
+    apiCall('/backup', 'POST', parsed).catch(err => console.warn('Sync backup to server failed:', err));
 
     return {
       success: true,
