@@ -27,6 +27,7 @@ import {
   getVersions,
   addVersion,
   restoreVersion,
+  deleteVersion,
   exportCompleteSystemBackup,
   importCompleteSystemBackup
 } from '../utils/storage';
@@ -152,6 +153,31 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
       },
       'info',
       'Load This Version'
+    );
+  };
+
+  const handleDeleteVersionClick = (ver) => {
+    if (ver.id === 'ver_init_1') {
+      setDbError('Factory original version (v1) is protected and cannot be deleted.');
+      setTimeout(() => setDbError(''), 4000);
+      return;
+    }
+
+    openConfirm(
+      `Delete Version ${ver.versionNumber}?`,
+      `Are you sure you want to permanently delete "${ver.fileName}" (Version ${ver.versionNumber}, uploaded by ${ver.uploadedBy} on ${ver.timestamp}) from the version logs?`,
+      () => {
+        const res = deleteVersion(ver.id);
+        if (res.success) {
+          setVersionsList(getVersions());
+          setDbSuccess(`Version ${ver.versionNumber} ("${ver.fileName}") was successfully deleted.`);
+          setTimeout(() => setDbSuccess(''), 4000);
+        } else {
+          setDbError(res.error || 'Could not delete version.');
+        }
+      },
+      'danger',
+      'Delete Version'
     );
   };
 
@@ -507,13 +533,34 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleRestoreVersionClick(ver)}
-                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-cyan-50 dark:hover:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-slate-200 dark:border-slate-700 hover:border-cyan-300 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
-                  >
-                    <span>Load this Version</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    <button
+                      onClick={() => handleRestoreVersionClick(ver)}
+                      className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-cyan-50 dark:hover:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-slate-200 dark:border-slate-700 hover:border-cyan-300 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                    >
+                      <span>Load this Version</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+
+                    {ver.id !== 'ver_init_1' ? (
+                      <button
+                        onClick={() => handleDeleteVersionClick(ver)}
+                        title={`Delete Version ${ver.versionNumber}`}
+                        className="px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:border-rose-300 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    ) : (
+                      <span
+                        title="Factory original version is permanently protected"
+                        className="hidden sm:flex items-center gap-1 px-2.5 py-2 text-[11px] text-slate-400 dark:text-slate-500 font-medium"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-cyan-500/70" />
+                        <span>Protected</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

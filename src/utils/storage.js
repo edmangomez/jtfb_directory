@@ -149,7 +149,8 @@ export function addVersion(fileName, data, uploadedBy = 'admin') {
 
   try {
     const versions = getVersions();
-    const nextVerNum = versions.length + 1;
+    const maxVerNum = versions.reduce((max, v) => Math.max(max, v.versionNumber || 1), 1);
+    const nextVerNum = maxVerNum + 1;
     const now = new Date();
     const timestamp = now.toISOString().replace('T', ' ').substring(0, 16);
 
@@ -220,6 +221,28 @@ export function restoreVersion(versionId) {
   const ok = saveData(dataToRestore);
   if (!ok) return null;
   return dataToRestore;
+}
+
+export function deleteVersion(versionId) {
+  if (versionId === 'ver_init_1') {
+    return { success: false, error: 'Factory version (v1) is protected and cannot be deleted.' };
+  }
+
+  try {
+    const versions = getVersions();
+    const filtered = versions.filter((v) => v.id !== versionId);
+
+    // Strip data from ver_init_1 before writing to localStorage
+    const leanToStore = filtered.map((v) =>
+      v.id === 'ver_init_1' ? { ...v, data: undefined } : v
+    );
+
+    localStorage.setItem(VERSIONS_KEY, JSON.stringify(leanToStore));
+    return { success: true, remaining: filtered };
+  } catch (err) {
+    console.error('Error deleting version log:', err);
+    return { success: false, error: 'Failed to delete version log: ' + err.message };
+  }
 }
 
 // --- Administrator Accounts Methods ---
