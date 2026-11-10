@@ -30,12 +30,6 @@ export default function LoginScreen({ onLoginSuccess }) {
     }, 250);
   };
 
-  const handleFillDemo = (u, p) => {
-    setUsername(u);
-    setPassword(p);
-    setError('');
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900 text-slate-100 relative overflow-hidden">
       {/* Background visual accents */}
@@ -124,32 +118,6 @@ export default function LoginScreen({ onLoginSuccess }) {
             <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
           </button>
         </form>
-
-        {/* Demo Credentials Box */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80">
-          <p className="text-[11px] uppercase font-semibold text-slate-400 tracking-wider mb-2 text-center">
-            System Administrator Accounts:
-          </p>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => handleFillDemo('admin', 'admin')}
-              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-left transition-colors"
-            >
-              <div className="font-bold text-cyan-400">Chief Admin</div>
-              <div className="text-[10px] text-slate-400 font-mono mt-0.5">admin / admin</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleFillDemo('telecom', 'telecom123')}
-              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-left transition-colors"
-            >
-              <div className="font-bold text-teal-400">Telecom Lead</div>
-              <div className="text-[10px] text-slate-400 font-mono mt-0.5">telecom / telecom123</div>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
