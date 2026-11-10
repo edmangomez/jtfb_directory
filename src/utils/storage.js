@@ -45,12 +45,18 @@ export function loadData() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed && parsed.phones && Array.isArray(parsed.phones)) {
+      if (parsed && parsed.phones && Array.isArray(parsed.phones) && parsed.phones.length > 0) {
         return parsed;
       }
     }
   } catch (err) {
     console.error('Error loading saved directory:', err);
+  }
+  // Fallback to initial bundled data (1,609 phones) and initialize storage
+  if (initialData && initialData.phones && initialData.phones.length > 0) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
+    } catch (e) {}
   }
   return initialData;
 }
