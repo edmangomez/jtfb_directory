@@ -693,7 +693,71 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile User Cards (Shown on mobile screens for crystal clear readability) */}
+            <div className="md:hidden space-y-3">
+              {usersList.map((u) => {
+                const isSelf = u.id === currentSession?.id || (currentSession && u.username.toLowerCase() === currentSession.username.toLowerCase());
+                return (
+                  <div
+                    key={u.id}
+                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2.5 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-full bg-cyan-600 text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase shadow-sm">
+                          {u.username.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold text-sm text-slate-900 dark:text-white font-mono">
+                              {u.username}
+                            </span>
+                            {isSelf && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 block font-medium">
+                            {u.name || 'System Administrator'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setEditingUser(u)}
+                          className="p-2 rounded-xl bg-white dark:bg-slate-700 hover:bg-cyan-50 dark:hover:bg-cyan-950 text-slate-600 dark:text-slate-200 border border-slate-200 dark:border-slate-600 shadow-sm"
+                          title="Edit user / Change password"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+
+                        {!isSelf && (
+                          <button
+                            onClick={() => handleDeleteUserClick(u.id, u.username)}
+                            className="p-2 rounded-xl bg-white dark:bg-slate-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-rose-600 dark:text-rose-400 border border-slate-200 dark:border-slate-600 shadow-sm"
+                            title="Delete user"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-slate-400">
+                      <span className="px-2 py-0.5 rounded-full bg-cyan-100/70 dark:bg-cyan-950/70 text-cyan-700 dark:text-cyan-300 font-bold uppercase text-[9px]">
+                        Administrator
+                      </span>
+                      <span>Created: {u.createdAt || '2026-11-10'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table (Hidden on mobile) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-800 whitespace-nowrap">
                   <tr>

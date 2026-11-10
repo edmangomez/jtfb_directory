@@ -170,7 +170,25 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 pb-24 md:pb-8">
+        {/* Mobile User Welcome Strip (Guarantees logged-in username is 100% visible on phones) */}
+        {currentUser && (
+          <div className="md:hidden flex items-center justify-between px-3.5 py-2 rounded-2xl bg-gradient-to-r from-cyan-500/10 via-sky-500/10 to-teal-500/10 border border-cyan-500/20 text-xs mb-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-slate-700 dark:text-slate-300 font-medium">
+                Logged in as: <strong className="text-cyan-700 dark:text-cyan-300 font-black capitalize">{currentUser.username}</strong>
+              </span>
+            </div>
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+              Admin
+            </span>
+          </div>
+        )}
+
         {/* Render Administration Panel */}
         {activeTab === 'admin' ? (
           <AdminPanel
@@ -322,10 +340,10 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Scroll to Top Button */}
+      {/* Floating Scroll to Top Button (Adjusted for mobile bottom nav) */}
       <button
         onClick={scrollToTop}
-        className="fixed bottom-5 right-5 z-20 p-3 rounded-2xl bg-cyan-600/90 hover:bg-cyan-600 text-white shadow-lg shadow-cyan-600/30 backdrop-blur-sm active:scale-90 transition-all"
+        className="fixed bottom-20 md:bottom-6 right-4 z-30 p-3 rounded-2xl bg-cyan-600/90 hover:bg-cyan-600 text-white shadow-lg shadow-cyan-600/30 backdrop-blur-sm active:scale-90 transition-all"
         title="Scroll to top"
         aria-label="Scroll to top"
       >
