@@ -9,7 +9,7 @@ import CrashLinesView from './components/CrashLinesView';
 import CopyModal from './components/CopyModal';
 import LoginScreen from './components/LoginScreen';
 import AdminPanel from './components/AdminPanel';
-import { loadData, fetchServerDatabase, getSession, logoutUser } from './utils/storage';
+import { loadData, fetchServerDatabase, fetchUsers, getSession, logoutUser } from './utils/storage';
 import { LayoutGrid, Table, Phone, ArrowUp, ChevronDown, FileSpreadsheet, Settings } from 'lucide-react';
 
 const PAGE_SIZE = 50;
@@ -50,6 +50,7 @@ export default function App() {
 
   // Central Server Synchronization
   useEffect(() => {
+    fetchUsers().catch(() => {});
     fetchServerDatabase().then((serverDb) => {
       if (serverDb && serverDb.phones && serverDb.phones.length > 0) {
         setData(serverDb);

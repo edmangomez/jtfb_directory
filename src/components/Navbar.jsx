@@ -43,17 +43,17 @@ export default function Navbar({
 
           {/* User Profile, Theme & Logout */}
           <div className="flex items-center gap-2">
-            {/* User Session Pill */}
+            {/* User Session Pill (Visible on Mobile & Desktop) */}
             {currentUser && (
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
-                <div className="w-6 h-6 rounded-full bg-cyan-600 text-white flex items-center justify-center text-[10px] font-bold">
+              <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+                <div className="w-6 h-6 rounded-full bg-cyan-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
                   {currentUser.username.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <span className="font-bold text-slate-800 dark:text-slate-200 block leading-tight">
+                <div className="min-w-0">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 block leading-tight truncate max-w-[85px] sm:max-w-none">
                     {currentUser.username}
                   </span>
-                  <span className="text-[10px] text-cyan-600 dark:text-cyan-400 uppercase font-semibold">
+                  <span className="text-[10px] text-cyan-600 dark:text-cyan-400 uppercase font-semibold hidden sm:block">
                     Administrator
                   </span>
                 </div>

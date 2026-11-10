@@ -91,7 +91,7 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
     fetchVersions().then((vList) => {
       if (vList && Array.isArray(vList)) setVersionsList(vList);
     });
-  }, []);
+  }, [activeAdminTab]);
 
   // --- Excel Upload & Versioning ---
 
@@ -679,6 +679,18 @@ export default function AdminPanel({ onDataUpdated, currentSession }) {
                   Accounts with full privileges to manage the directory and system
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const list = await fetchUsers();
+                  if (list && Array.isArray(list)) setUsersList(list);
+                }}
+                title="Sync users directly from server"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition text-xs font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 shadow-sm"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-cyan-500" />
+                <span>Sync</span>
+              </button>
             </div>
 
             <div className="overflow-x-auto">

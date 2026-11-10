@@ -500,8 +500,8 @@ export async function loginUser(username, password) {
     try {
       localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
     } catch (e) {}
-    // Background sync users
-    fetchUsers().catch(() => {});
+    // Sync users immediately so local cache is populated
+    await fetchUsers().catch(() => {});
     return { success: true, user: sessionData };
   }
 
